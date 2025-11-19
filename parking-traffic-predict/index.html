@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="description" content="Real-time parking and traffic intensity prediction across the city">
+    <title>Smart City - Predictive Mobility</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-city"></i>
+                <span>Smart City AI</span>
+            </div>
+            <div class="header-user-info">
+                <div class="parkcoins-display">
+                    <i class="fas fa-coins"></i>
+                    <span id="parkCoinsBalance">1,250</span>
+                </div>
+                <div class="tier-badge" id="tierBadge">
+                    <i class="fas fa-crown"></i>
+                    <span id="tierName">SILVER</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="themeToggle" class="icon-btn" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="refreshBtn" class="icon-btn" aria-label="Refresh data">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <!-- Dashboard View -->
+        <section id="dashboardView" class="view active">
+            <div class="section-header">
+                <h1>City Overview</h1>
+                <div class="update-time">
+                    <i class="fas fa-clock"></i>
+                    <span id="lastUpdate">Just now</span>
+                </div>
+            </div>
+
+            <!-- City Metrics Cards -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: var(--color-bg-1);">
+                        <i class="fas fa-parking"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-label">Available Parking</div>
+                        <div class="metric-value" id="totalAvailable">0</div>
+                        <div class="metric-trend positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span id="parkingTrend">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: var(--color-bg-2);">
+                        <i class="fas fa-car"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-label">Avg Traffic</div>
+                        <div class="metric-value" id="avgTraffic">0%</div>
+                        <div class="metric-trend" id="trafficTrendContainer">
+                            <i class="fas fa-minus"></i>
+                            <span id="trafficTrend">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: var(--color-bg-3);">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-label">Active Zones</div>
+                        <div class="metric-value" id="activeZones">144</div>
+                        <div class="metric-sublabel">Monitoring</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Info -->
+            <div class="model-info-banner">
+                <div class="model-badge">
+                    <i class="fas fa-brain"></i>
+                    <span id="activeModel">Transformer-based</span>
+                </div>
+                <div class="model-stats">
+                    <span class="stat">Accuracy: <strong id="modelAccuracy">95.2%</strong></span>
+                    <span class="stat">Latency: <strong id="modelLatency">78ms</strong></span>
+                </div>
+            </div>
+
+            <!-- City Heatmap -->
+            <div class="heatmap-container">
+                <div class="heatmap-header">
+                    <h2>City Zones</h2>
+                    <div class="view-toggle">
+                        <button class="toggle-btn active" data-layer="parking">
+                            <i class="fas fa-parking"></i> Parking
+                        </button>
+                        <button class="toggle-btn" data-layer="traffic">
+                            <i class="fas fa-traffic-light"></i> Traffic
+                        </button>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #2ecc71;"></span>
+                        <span id="legendLow">Abundant</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #f39c12;"></span>
+                        <span id="legendMid">Moderate</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #e74c3c;"></span>
+                        <span id="legendHigh">Critical</span>
+                    </div>
+                </div>
+                <div id="cityGrid" class="city-grid"></div>
+            </div>
+
+            <!-- Top Zones Lists -->
+            <div class="lists-container">
+                <div class="zone-list-card">
+                    <h3><i class="fas fa-check-circle"></i> Best Parking Availability</h3>
+                    <div id="topParkingList" class="zone-list"></div>
+                </div>
+                <div class="zone-list-card alert">
+                    <h3><i class="fas fa-exclamation-triangle"></i> High Congestion Zones</h3>
+                    <div id="topTrafficList" class="zone-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Zone Detail View -->
+        <section id="zoneDetailView" class="view">
+            <div class="detail-header">
+                <button id="backBtn" class="btn btn--secondary">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <h2 id="zoneName">Zone Details</h2>
+            </div>
+
+            <div class="zone-detail-content">
+                <div class="detail-metrics">
+                    <div class="detail-card">
+                        <div class="detail-label">Available Spots</div>
+                        <div class="detail-value" id="zoneAvailable">0</div>
+                        <div class="detail-sublabel" id="zoneCapacity">of 0 total</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Occupancy Rate</div>
+                        <div class="detail-value" id="zoneOccupancy">0%</div>
+                        <div class="detail-trend" id="zoneTrend">
+                            <i class="fas fa-arrow-up"></i> <span id="zoneTrendValue">0%</span>
+                        </div>
+                    </div>
+                    <div class="detail-card pricing-card">
+                        <div class="detail-label">Current Rate</div>
+                        <div class="detail-value" id="zonePrice">$0.00</div>
+                        <div class="detail-sublabel" id="zonePriceTrend">per hour</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Traffic Intensity</div>
+                        <div class="detail-value" id="zoneTraffic">0%</div>
+                        <div class="traffic-status" id="zoneTrafficStatus">Moderate</div>
+                    </div>
+                </div>
+
+                <!-- Zone Amenities -->
+                <div class="zone-amenities-card">
+                    <h3><i class="fas fa-star"></i> Available Amenities</h3>
+                    <div id="zoneAmenitiesList" class="amenities-grid"></div>
+                </div>
+
+                <!-- Prediction Chart -->
+                <div class="chart-container">
+                    <h3>Parking Availability Prediction</h3>
+                    <div class="prediction-tabs">
+                        <button class="pred-tab active" data-horizon="30">30 min</button>
+                        <button class="pred-tab" data-horizon="60">60 min</button>
+                        <button class="pred-tab" data-horizon="120">2 hours</button>
+                    </div>
+                    <canvas id="predictionChart"></canvas>
+                </div>
+
+                <!-- Historical Pattern -->
+                <div class="chart-container">
+                    <h3>Typical Daily Pattern</h3>
+                    <canvas id="historicalChart"></canvas>
+                </div>
+
+                <!-- Booking Action -->
+                <div class="booking-action-card">
+                    <div class="booking-price-breakdown">
+                        <h3>Price Breakdown</h3>
+                        <div class="price-breakdown-item">
+                            <span>Base Rate</span>
+                            <span id="priceBase">$2.00/hr</span>
+                        </div>
+                        <div class="price-breakdown-item" id="priceAmenitiesRow" style="display: none;">
+                            <span>Amenities</span>
+                            <span id="priceAmenities">+$0.00/hr</span>
+                        </div>
+                        <div class="price-breakdown-item" id="priceLoyaltyRow" style="display: none;">
+                            <span>Loyalty Discount</span>
+                            <span id="priceLoyalty" class="discount">-$0.00/hr</span>
+                        </div>
+                        <div class="price-breakdown-total">
+                            <span>Total</span>
+                            <span id="priceTotal">$2.00/hr</span>
+                        </div>
+                    </div>
+                    <button class="btn btn--primary btn--full-width" id="bookNowBtn">
+                        <i class="fas fa-parking"></i> Book Now
+                    </button>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="recommendations">
+                    <h3><i class="fas fa-lightbulb"></i> Nearby Alternatives</h3>
+                    <div id="recommendationsList" class="recommendations-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Traffic View -->
+        <section id="trafficView" class="view">
+            <div class="section-header">
+                <h1>Traffic Analysis</h1>
+                <div class="status-indicator">
+                    <span class="status-dot" id="trafficStatusDot"></span>
+                    <span id="trafficStatusText">Monitoring</span>
+                </div>
+            </div>
+
+            <div class="traffic-summary">
+                <div class="summary-card">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <div>
+                        <div class="summary-label">Avg Speed</div>
+                        <div class="summary-value" id="avgSpeed">0 km/h</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div>
+                        <div class="summary-label">Congestion Zones</div>
+                        <div class="summary-value" id="congestionCount">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="heatmap-container">
+                <h2>Traffic Intensity Map</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #27ae60;"></span>
+                        <span>Smooth</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #f39c12;"></span>
+                        <span>Moderate</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #c0392b;"></span>
+                        <span>Congested</span>
+                    </div>
+                </div>
+                <div id="trafficGrid" class="city-grid"></div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Traffic Forecast - Next 2 Hours</h3>
+                <canvas id="trafficForecastChart"></canvas>
+            </div>
+
+            <div class="alert-list">
+                <h3><i class="fas fa-bell"></i> Active Alerts</h3>
+                <div id="alertsList"></div>
+            </div>
+        </section>
+
+        <!-- Predictive Analytics View -->
+        <section id="analyticsView" class="view">
+            <div class="section-header">
+                <h1>Predictive Analytics</h1>
+                <div class="confidence-badge">
+                    <i class="fas fa-chart-line"></i>
+                    <span>High Confidence</span>
+                </div>
+            </div>
+
+            <div class="analytics-controls">
+                <div class="form-group">
+                    <label class="form-label">Prediction Horizon</label>
+                    <select id="horizonSelect" class="form-control">
+                        <option value="30">30 minutes ahead</option>
+                        <option value="60">60 minutes ahead</option>
+                        <option value="120">2 hours ahead</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Compare Zones</label>
+                    <select id="compareZones" class="form-control" multiple size="3">
+                        <option value="1">Downtown Central</option>
+                        <option value="2">Business District</option>
+                        <option value="15">University Area</option>
+                        <option value="30">Shopping Mall</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Multi-Zone Comparison</h3>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+
+            <div class="features-grid">
+                <h3>Key Prediction Factors</h3>
+                <div class="feature-bars">
+                    <div class="feature-bar">
+                        <div class="feature-label">Time of Day</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 85%; background: var(--color-primary);"></div>
+                        </div>
+                        <div class="feature-value">85%</div>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-label">Day of Week</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 72%; background: var(--color-primary);"></div>
+                        </div>
+                        <div class="feature-value">72%</div>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-label">Historical Pattern</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 68%; background: var(--color-primary);"></div>
+                        </div>
+                        <div class="feature-value">68%</div>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-label">Weather Impact</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 45%; background: var(--color-primary);"></div>
+                        </div>
+                        <div class="feature-value">45%</div>
+                    </div>
+                    <div class="feature-bar">
+                        <div class="feature-label">Special Events</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 38%; background: var(--color-primary);"></div>
+                        </div>
+                        <div class="feature-value">38%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="model-comparison">
+                <h3>Model Performance</h3>
+                <div class="models-grid">
+                    <div class="model-card">
+                        <div class="model-name">CNN-LSTM</div>
+                        <div class="model-metric">
+                            <span>Accuracy</span>
+                            <strong>92.3%</strong>
+                        </div>
+                        <div class="model-metric">
+                            <span>Latency</span>
+                            <strong>45ms</strong>
+                        </div>
+                    </div>
+                    <div class="model-card">
+                        <div class="model-name">Graph Neural Network</div>
+                        <div class="model-metric">
+                            <span>Accuracy</span>
+                            <strong>94.1%</strong>
+                        </div>
+                        <div class="model-metric">
+                            <span>Latency</span>
+                            <strong>52ms</strong>
+                        </div>
+                    </div>
+                    <div class="model-card active">
+                        <div class="model-name">Transformer-based</div>
+                        <div class="model-metric">
+                            <span>Accuracy</span>
+                            <strong>95.2%</strong>
+                        </div>
+                        <div class="model-metric">
+                            <span>Latency</span>
+                            <strong>78ms</strong>
+                        </div>
+                        <div class="active-badge">Active</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Analytics View -->
+        <section id="pricingView" class="view">
+            <div class="section-header">
+                <h1>Dynamic Pricing</h1>
+                <div class="price-update-badge">
+                    <i class="fas fa-bolt"></i>
+                    <span>Real-time</span>
+                </div>
+            </div>
+
+            <div class="pricing-overview-cards">
+                <div class="price-card cheapest">
+                    <div class="price-card-icon"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="price-card-content">
+                        <div class="price-card-label">Cheapest Zone</div>
+                        <div class="price-card-value" id="cheapestZone">Loading...</div>
+                        <div class="price-card-rate" id="cheapestRate">$0.00/hr</div>
+                    </div>
+                </div>
+                <div class="price-card expensive">
+                    <div class="price-card-icon"><i class="fas fa-fire"></i></div>
+                    <div class="price-card-content">
+                        <div class="price-card-label">Highest Demand</div>
+                        <div class="price-card-value" id="expensiveZone">Loading...</div>
+                        <div class="price-card-rate" id="expensiveRate">$0.00/hr</div>
+                    </div>
+                </div>
+                <div class="price-card best-value">
+                    <div class="price-card-icon"><i class="fas fa-star"></i></div>
+                    <div class="price-card-content">
+                        <div class="price-card-label">Best Value</div>
+                        <div class="price-card-value" id="bestValueZone">Loading...</div>
+                        <div class="price-card-rate" id="bestValueRate">$0.00/hr</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Zone Pricing Comparison</h3>
+                <canvas id="pricingChart"></canvas>
+            </div>
+
+            <div class="pricing-zones-list">
+                <h3>All Zones - Current Rates</h3>
+                <div id="pricingZonesList" class="pricing-list"></div>
+            </div>
+        </section>
+
+        <!-- Loyalty & Rewards View -->
+        <section id="loyaltyView" class="view">
+            <div class="section-header">
+                <h1>Loyalty &amp; Rewards</h1>
+            </div>
+
+            <div class="tier-progress-card">
+                <div class="tier-header">
+                    <div class="current-tier">
+                        <div class="tier-badge-large" id="tierBadgeLarge">
+                            <i class="fas fa-crown"></i>
+                            <span id="tierNameLarge">SILVER</span>
+                        </div>
+                    </div>
+                    <div class="tier-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Current Points</span>
+                            <span class="stat-value" id="currentPoints">750</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Lifetime Coins</span>
+                            <span class="stat-value" id="lifetimeCoins">1,250</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tier-progress">
+                    <div class="progress-labels">
+                        <span>Points to GOLD</span>
+                        <span id="pointsToNext">750 / 1,500</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="tierProgressBar" style="width: 50%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="benefits-grid">
+                <h3>Your Benefits</h3>
+                <div id="benefitsList" class="benefits-list"></div>
+            </div>
+
+            <div class="partner-offers">
+                <h3><i class="fas fa-handshake"></i> Partner Offers</h3>
+                <div id="partnerOffersList" class="partners-grid"></div>
+            </div>
+
+            <div class="referral-section">
+                <div class="referral-card">
+                    <i class="fas fa-gift"></i>
+                    <div>
+                        <h4>Refer a Friend</h4>
+                        <p>Earn 100 ParkCoins per referral</p>
+                        <div class="referral-code">Code: <strong id="referralCode">PARK1250</strong></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Payment History View -->
+        <section id="paymentView" class="view">
+            <div class="section-header">
+                <h1>Payment History</h1>
+                <div class="blockchain-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Blockchain Secured</span>
+                </div>
+            </div>
+
+            <div class="blockchain-info-panel">
+                <h3>Transaction Security</h3>
+                <div class="security-features">
+                    <div class="security-item">
+                        <i class="fas fa-lock"></i>
+                        <div>
+                            <strong>256-bit Encryption</strong>
+                            <p>Military-grade security</p>
+                        </div>
+                    </div>
+                    <div class="security-item">
+                        <i class="fas fa-check-circle"></i>
+                        <div>
+                            <strong>Smart Contract Verified</strong>
+                            <p>Automated payment validation</p>
+                        </div>
+                    </div>
+                    <div class="security-item">
+                        <i class="fas fa-database"></i>
+                        <div>
+                            <strong>Immutable Records</strong>
+                            <p>Permanent blockchain storage</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="blockchain-stats">
+                    <div class="stat-box">
+                        <span class="stat-number" id="dailyTransactions">5,247</span>
+                        <span class="stat-text">Transactions Today</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number">2.3s</span>
+                        <span class="stat-text">Avg Confirmation</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="transactions-list">
+                <h3>Recent Transactions</h3>
+                <div id="transactionsList"></div>
+            </div>
+        </section>
+
+        <!-- Settings View -->
+        <section id="settingsView" class="view">
+            <div class="section-header">
+                <h1>Settings</h1>
+            </div>
+
+            <div class="settings-content">
+                <div class="settings-group">
+                    <h3>Appearance</h3>
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <i class="fas fa-palette"></i>
+                            <span>Theme</span>
+                        </div>
+                        <div class="setting-control">
+                            <button id="themeSwitch" class="btn btn--secondary">Toggle Theme</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Data Updates</h3>
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <i class="fas fa-sync"></i>
+                            <span>Auto Refresh</span>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="autoRefreshToggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <i class="fas fa-clock"></i>
+                            <span>Update Interval</span>
+                        </div>
+                        <div class="setting-control">
+                            <select id="updateInterval" class="form-control">
+                                <option value="3000">3 seconds</option>
+                                <option value="4000" selected>4 seconds</option>
+                                <option value="5000">5 seconds</option>
+                                <option value="10000">10 seconds</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Cloud Infrastructure</h3>
+                    <div class="info-panel">
+                        <div class="info-item">
+                            <i class="fas fa-server"></i>
+                            <div>
+                                <strong>Edge Processing</strong>
+                                <p>Low-latency local predictions for real-time response</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-cloud"></i>
+                            <div>
+                                <strong>Cloud Aggregation</strong>
+                                <p>City-wide pattern analysis and model training</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-network-wired"></i>
+                            <div>
+                                <strong>Hybrid Architecture</strong>
+                                <p>Distributed inference across edge and cloud layers</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>About</h3>
+                    <div class="about-info">
+                        <p><strong>Smart City AI</strong> - Metro District</p>
+                        <p>Version 1.0.0</p>
+                        <p>Hybrid DL-powered predictive mobility platform</p>
+                        <p class="small">© 2025 Smart City Initiative</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-view="dashboard">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="pricing">
+            <i class="fas fa-dollar-sign"></i>
+            <span>Pricing</span>
+        </button>
+        <button class="nav-item" data-view="loyalty">
+            <i class="fas fa-crown"></i>
+            <span>Loyalty</span>
+        </button>
+        <button class="nav-item" data-view="payment">
+            <i class="fas fa-wallet"></i>
+            <span>Payments</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+            <i class="fas fa-cog"></i>
+            <span>More</span>
+        </button>
+    </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
